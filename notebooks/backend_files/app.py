@@ -71,7 +71,7 @@ def relevant_chunks():
     Example request:
     {
         "query": "What is the cancellation policy?",
-        "k": 3
+        "k": 4
     }
 
     Returns the top-k relevant chunks retrieved from
@@ -83,7 +83,7 @@ def relevant_chunks():
 
     # Extract parameters
     query = data["query"]
-    k = data.get("k", 2)
+    k = data.get("k", 4)
 
     # Retrieve relevant chunks
     chunks = retrieve(
@@ -112,7 +112,7 @@ def answer_with_relevant_chunks():
     Example request:
     {
         "query": "What is the cancellation policy?",
-        "k": 3,
+        "k": 4,
         "model_name": "gpt-4o-mini",
         "temperature": 0.0,
         "top_p": 1.0,
@@ -128,7 +128,7 @@ def answer_with_relevant_chunks():
 
     # Extract parameters
     query = data["query"]
-    k = data.get("k", 2)
+    k = data.get("k", 4)
     model_name = data.get("model_name", "gpt-4o-mini")
     temperature = data.get("temperature", 0.0)
     top_p = data.get("top_p", 1.0)
@@ -170,7 +170,7 @@ def answer():
     Example request:
     {
         "query": "What is the cancellation policy?",
-        "k": 3,
+        "k": 4,
         "model_name": "gpt-4o-mini",
         "temperature": 0.0,
         "top_p": 1.0,
@@ -185,7 +185,7 @@ def answer():
 
     # Extract parameters
     query = data["query"]
-    k = data.get("k", 2)
+    k = data.get("k", 4)
     model_name = data.get("model_name", "gpt-4o-mini")
     temperature = data.get("temperature", 0.0)
     top_p = data.get("top_p", 1.0)
