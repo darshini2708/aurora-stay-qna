@@ -213,4 +213,8 @@ def answer():
 # ---------------------------------------------------------
 
 if __name__ == "__main__":
-    rag_api.run(debug=True)
+    rag_api.run(
+        host="0.0.0.0",
+        port=7860,
+        debug=True
+    )
