@@ -1,11 +1,12 @@
 
 # Import necessary libraries
-from flask import Flask, request, jsonify
-from langchain_huggingface import HuggingFaceEmbeddings
+from flask import Flask, jsonify, request
 from langchain_community.vectorstores import FAISS
+from langchain_huggingface import HuggingFaceEmbeddings
 
 # Import RAG utility functions
-from rag_utils import retrieve, rag
+from rag_utils import rag, retrieve
+from validation import ValidationError, parse_rag_request
 
 
 # ---------------------------------------------------------
@@ -60,6 +61,26 @@ def home():
 
 
 # ---------------------------------------------------------
+# JSON error handlers
+# ---------------------------------------------------------
+
+@rag_api.errorhandler(404)
+def handle_not_found(error):
+    """
+    Returns a JSON response for unknown routes.
+    """
+    return jsonify({"error": {"message": "Not found."}}), 404
+
+
+@rag_api.errorhandler(405)
+def handle_method_not_allowed(error):
+    """
+    Returns a JSON response for unsupported HTTP methods.
+    """
+    return jsonify({"error": {"message": "Method not allowed."}}), 405
+
+
+# ---------------------------------------------------------
 # Relevant chunks endpoint
 # ---------------------------------------------------------
 
@@ -78,24 +99,32 @@ def relevant_chunks():
     the vector store.
     """
 
-    # Get JSON data from request body
-    data = request.get_json()
-
-    # Extract parameters
-    query = data["query"]
-    k = data.get("k", 4)
+    # Validate the JSON request body
+    try:
+        params = parse_rag_request(
+            request.get_json(silent=True),
+            require_generation=False
+        )
+    except ValidationError as error:
+        return jsonify(error.to_dict()), 400
 
     # Retrieve relevant chunks
-    chunks = retrieve(
-        query=query,
-        k=k,
-        vectorstore=vectorstore
-    )
+    try:
+        chunks = retrieve(
+            query=params.query,
+            k=params.k,
+            vectorstore=vectorstore
+        )
+    except Exception:
+        rag_api.logger.exception("Chunk retrieval failed")
+        return jsonify({
+            "error": {"message": "Unable to retrieve relevant chunks."}
+        }), 502
 
     # Return the retrieved chunks
     return jsonify({
-        "query": query,
-        "k": k,
+        "query": params.query,
+        "k": params.k,
         "relevant_chunks": chunks
     })
 
@@ -123,36 +152,37 @@ def answer_with_relevant_chunks():
     chunks used to generate the answer.
     """
 
-    # Get JSON data from request body
-    data = request.get_json()
-
-    # Extract parameters
-    query = data["query"]
-    k = data.get("k", 4)
-    model_name = data.get("model_name", "gpt-4o-mini")
-    temperature = data.get("temperature", 0.0)
-    top_p = data.get("top_p", 1.0)
-    max_tokens = data.get("max_tokens", 512)
+    # Validate the JSON request body
+    try:
+        params = parse_rag_request(request.get_json(silent=True))
+    except ValidationError as error:
+        return jsonify(error.to_dict()), 400
 
     # Run the complete RAG pipeline
-    answer, chunks = rag(
-        query=query,
-        k=k,
-        model_name=model_name,
-        temperature=temperature,
-        top_p=top_p,
-        max_tokens=max_tokens,
-        vectorstore=vectorstore
-    )
+    try:
+        answer, chunks = rag(
+            query=params.query,
+            k=params.k,
+            model_name=params.model_name,
+            temperature=params.temperature,
+            top_p=params.top_p,
+            max_tokens=params.max_tokens,
+            vectorstore=vectorstore
+        )
+    except Exception:
+        rag_api.logger.exception("RAG generation failed")
+        return jsonify({
+            "error": {"message": "Unable to generate an answer."}
+        }), 502
 
     # Return answer, chunks, and parameters used
     return jsonify({
-        "query": query,
-        "k": k,
-        "model_name": model_name,
-        "temperature": temperature,
-        "top_p": top_p,
-        "max_tokens": max_tokens,
+        "query": params.query,
+        "k": params.k,
+        "model_name": params.model_name,
+        "temperature": params.temperature,
+        "top_p": params.top_p,
+        "max_tokens": params.max_tokens,
         "relevant_chunks": chunks,
         "answer": answer
     })
@@ -180,27 +210,28 @@ def answer():
     Returns only the generated answer.
     """
 
-    # Get JSON data from request body
-    data = request.get_json()
-
-    # Extract parameters
-    query = data["query"]
-    k = data.get("k", 4)
-    model_name = data.get("model_name", "gpt-4o-mini")
-    temperature = data.get("temperature", 0.0)
-    top_p = data.get("top_p", 1.0)
-    max_tokens = data.get("max_tokens", 512)
+    # Validate the JSON request body
+    try:
+        params = parse_rag_request(request.get_json(silent=True))
+    except ValidationError as error:
+        return jsonify(error.to_dict()), 400
 
     # Run the complete RAG pipeline
-    generated_answer, _ = rag(
-        query=query,
-        k=k,
-        model_name=model_name,
-        temperature=temperature,
-        top_p=top_p,
-        max_tokens=max_tokens,
-        vectorstore=vectorstore
-    )
+    try:
+        generated_answer, _ = rag(
+            query=params.query,
+            k=params.k,
+            model_name=params.model_name,
+            temperature=params.temperature,
+            top_p=params.top_p,
+            max_tokens=params.max_tokens,
+            vectorstore=vectorstore
+        )
+    except Exception:
+        rag_api.logger.exception("RAG generation failed")
+        return jsonify({
+            "error": {"message": "Unable to generate an answer."}
+        }), 502
 
     # Return only the answer
     return jsonify({
